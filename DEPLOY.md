@@ -22,7 +22,25 @@ In order:
 
 ### 2. Code on GitHub
 
-Repo: `https://github.com/itsPrashantsingh/DairyLedger`
+| Repo | Purpose |
+|------|---------|
+| **lushandpuresledger** | **Vercel deploys from this repo** |
+| DairyLedger | Backup copy (optional) |
+
+After code changes, push to the Vercel repo:
+
+```bash
+git add .
+/usr/bin/git commit -m "Your message"
+git push vercel main
+```
+
+If `vercel` remote is missing:
+
+```bash
+git remote add vercel https://github.com/itsPrashantsingh/lushandpuresledger.git
+git push vercel main
+```
 
 ---
 
@@ -35,7 +53,7 @@ Render’s **free web service** does not expire after 30 days (unlike Railway’
 ### Steps
 
 1. Go to [render.com](https://render.com) → Sign up with GitHub
-2. **New** → **Web Service** → connect `itsPrashantsingh/DairyLedger`
+2. **New** → **Web Service** → connect `itsPrashantsingh/lushandpuresledger` (or `DairyLedger` if you prefer one repo)
 3. Settings:
 
 | Setting | Value |
@@ -77,7 +95,7 @@ Render’s **free web service** does not expire after 30 days (unlike Railway’
 
 ## Deploy frontend — Vercel (free)
 
-1. [vercel.com](https://vercel.com) → Add New Project → Import `DairyLedger`
+1. [vercel.com](https://vercel.com) → project connected to **`lushandpuresledger`**
 2. **Root Directory:** `frontend`
 3. Build: `npm run build` → Output: `dist`
 4. Environment variables:
@@ -146,7 +164,7 @@ Redeploy Vercel after adding the variable.
 
 | Change | Redeploys automatically? |
 |--------|--------------------------|
-| Push code to GitHub `main` | **Yes** — Vercel + Render redeploy if connected to repo |
+| Push code to GitHub `main` on **lushandpuresledger** | **Yes** — Vercel redeploys automatically |
 | New Vercel env var | **Yes** — trigger redeploy in Vercel dashboard |
 | Supabase SQL migration | **No** — run `005_auth_rls.sql` manually once in SQL Editor |
 | Create admin user in Supabase | **No** — one-time in dashboard |
