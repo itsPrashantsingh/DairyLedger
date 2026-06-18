@@ -40,13 +40,11 @@ export async function shareBillOnWhatsApp(customer, entries, bill, razorpayUrl) 
   const blob = doc.output('blob')
   const file = new File([blob], filename, { type: 'application/pdf' })
 
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({
         title: `Bill ${bill.id}`,
-        text: message + '\n\n(Bill PDF attached)',
+        text: message,
         files: [file]
       })
       return { method: 'share', success: true, attached: true }
@@ -56,12 +54,7 @@ export async function shareBillOnWhatsApp(customer, entries, bill, razorpayUrl) 
   }
 
   doc.save(filename)
-
-  const desktopMsg = isMobile
-    ? message + '\n\n📎 Bill PDF — attach from your downloads'
-    : message + '\n\n📎 Bill PDF downloaded to your computer — please attach it in WhatsApp before sending'
-
-  window.open(whatsappLink(customer.whatsapp_no, desktopMsg), '_blank')
+  window.open(whatsappLink(customer.whatsapp_no, message), '_blank')
   return { method: 'download', success: true, attached: false }
 }
 

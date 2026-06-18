@@ -14,6 +14,7 @@ import {
 import { openBillPdf } from '../lib/pdf'
 import { shareBillOnWhatsApp } from '../lib/whatsapp'
 import WhatsAppSendQueue from '../components/WhatsAppSendQueue'
+import LoadingOverlay from '../components/LoadingOverlay'
 import { getBillStatus, formatCurrency, whatsappLink, currentYearMonth, formatDate } from '../lib/utils'
 import { getSettings } from '../lib/constants'
 
@@ -152,9 +153,25 @@ export default function Bills() {
 
   const tabs = [{ key: 'all', label: 'All' }, { key: 'paid', label: 'Paid' }, { key: 'unpaid', label: 'Unpaid' }, { key: 'partial', label: 'Partial' }]
 
+  function progressSubtitle() {
+    if (!progress) return 'Please wait…'
+    const action = progress.step === 'razorpay' ? 'Creating Razorpay link' : 'Generating bill'
+    return `${action} for ${progress.name} (${progress.current}/${progress.total})`
+  }
+
+  const overlayTitle = running === 'razorpay'
+    ? 'Creating Razorpay payment links…'
+    : running === 'generate'
+      ? 'Generating bills & payment links…'
+      : ''
+
   return (
     <div className="space-y-4">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+
+      {(running === 'generate' || running === 'razorpay') && (
+        <LoadingOverlay title={overlayTitle} subtitle={progressSubtitle()} />
+      )}
 
       <h1 className="text-2xl font-bold text-slate-800">Bills</h1>
 
@@ -182,8 +199,8 @@ export default function Bills() {
         </div>
 
         {progress && (
-          <p className="mt-3 text-sm text-slate-600">
-            {progress.step || 'Processing'} {progress.current}/{progress.total}: <strong>{progress.name}</strong>
+          <p className="mt-3 text-sm text-slate-600 sr-only">
+            {progressSubtitle()}
           </p>
         )}
 

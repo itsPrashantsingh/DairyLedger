@@ -193,6 +193,7 @@ export async function generateAllMonthlyBills(month, { withRazorpay = true, onPr
 
       if (withRazorpay && Number(bill.total_amount) > 0) {
         try {
+          onProgress?.({ step: 'razorpay', current: i, total: eligible.length, name: customer.name })
           const url = await createRazorpayLink(bill, customer)
           bill.razorpay_short_url = url
           results.razorpay.push(bill.id)

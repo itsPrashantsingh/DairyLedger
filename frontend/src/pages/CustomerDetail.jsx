@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { createBill, getPaidAmountForBill, createRazorpayLink, billableEntries, entrySubtotal } from '../lib/bills'
 import { openBillPdf } from '../lib/pdf'
 import { shareBillOnWhatsApp } from '../lib/whatsapp'
+import LoadingOverlay from '../components/LoadingOverlay'
 import {
   formatCurrency,
   formatDate,
@@ -21,6 +22,7 @@ export default function CustomerDetail() {
   const [currentBill, setCurrentBill] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionMsg, setActionMsg] = useState('')
+  const [razorpayLoading, setRazorpayLoading] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState(null)
 
@@ -122,12 +124,16 @@ export default function CustomerDetail() {
       setActionMsg('Generate a bill first')
       return
     }
+    setRazorpayLoading(true)
+    setActionMsg('')
     try {
       const url = await createRazorpayLink(currentBill, customer)
       setCurrentBill({ ...currentBill, razorpay_short_url: url })
       setActionMsg('Razorpay link created ✓')
     } catch (err) {
       setActionMsg('Razorpay error: ' + (err.response?.data?.error || err.message))
+    } finally {
+      setRazorpayLoading(false)
     }
   }
 
@@ -159,6 +165,12 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
+      {razorpayLoading && (
+        <LoadingOverlay
+          title="Creating Razorpay payment link…"
+          subtitle={`For ${customer.name}`}
+        />
+      )}
       <Link to="/customers" className="text-sm text-green-600 hover:underline">← Back to Customers</Link>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -211,8 +223,12 @@ export default function CustomerDetail() {
         <button onClick={handleGenerateBill} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
           Generate Bill
         </button>
-        <button onClick={handleCreateRazorpayLink} className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
-          Create Razorpay Link
+        <button
+          onClick={handleCreateRazorpayLink}
+          disabled={razorpayLoading}
+          className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+        >
+          {razorpayLoading ? 'Creating link…' : 'Create Razorpay Link'}
         </button>
         <button onClick={handleSendWhatsApp} className="rounded-lg border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100">
           Send on WhatsApp
