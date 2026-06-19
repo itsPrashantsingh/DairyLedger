@@ -14,7 +14,7 @@ import {
   getBillStatus
 } from '../lib/utils'
 import { getPaidAmountsForBills, markCashPayment } from '../lib/bills'
-import { DAIRY_NAME } from '../lib/constants'
+import { buildPaymentDueMessage, buildCashReceivedMessage } from '../lib/messages'
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -127,7 +127,7 @@ export default function Dashboard() {
     if (!amount) return
     try {
       const { customer, applied } = await markCashPayment(bill, amount, bill.customers)
-      const msg = `Hi ${customer.name} bhai, ${formatCurrency(applied)} cash payment received ✓ Thank you! — ${DAIRY_NAME}`
+      const msg = buildCashReceivedMessage(customer, formatCurrency(applied))
       window.open(whatsappLink(customer.whatsapp_no, msg), '_blank')
       loadDashboard()
     } catch (err) {
@@ -136,8 +136,8 @@ export default function Dashboard() {
   }
 
   function handleReminder(bill) {
-    const balance = Number(bill.total_amount) - (bill.paidAmount || 0)
-    const msg = `Hi ${bill.customers.name} bhai, aapka milk bill ${formatCurrency(balance)} abhi pending hai. Please pay karo${bill.razorpay_short_url ? ': ' + bill.razorpay_short_url : ''}. — ${DAIRY_NAME} 🥛`
+    const balance = formatCurrency(Number(bill.total_amount) - (bill.paidAmount || 0))
+    const msg = buildPaymentDueMessage(bill.customers, balance, bill.razorpay_short_url)
     window.open(whatsappLink(bill.customers.whatsapp_no, msg), '_blank')
   }
 

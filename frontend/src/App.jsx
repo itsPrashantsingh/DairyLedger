@@ -5,6 +5,7 @@ import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import DailyEntry from './pages/DailyEntry'
+import MilkProduction from './pages/MilkProduction'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Bills from './pages/Bills'
@@ -49,6 +50,7 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/daily-entry" element={<DailyEntry />} />
+                    <Route path="/milk-production" element={<MilkProduction />} />
                     <Route path="/customers" element={<Customers />} />
                     <Route path="/customers/:id" element={<CustomerDetail />} />
                     <Route path="/bills" element={<Bills />} />

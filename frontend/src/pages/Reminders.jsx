@@ -3,13 +3,11 @@ import { supabase } from '../lib/supabase'
 import Toast from '../components/Toast'
 import { formatCurrency, whatsappLink, isOverdue } from '../lib/utils'
 import { getPaidAmountsForBills } from '../lib/bills'
-import { getSettings } from '../lib/constants'
+import { buildReminderMessage } from '../lib/messages'
+import { Link } from 'react-router-dom'
 
 export default function Reminders() {
   const [items, setItems] = useState([])
-  const [template, setTemplate] = useState(
-    'Hi {name} bhai, aapka {month} ka milk bill ₹{amount} abhi pending hai.\nPlease pay karo: {razorpayUrl}\n— {dairyName} 🥛'
-  )
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [progress, setProgress] = useState(null)
@@ -45,19 +43,8 @@ export default function Reminders() {
     setLoading(false)
   }
 
-  function fillTemplate(item) {
-    const dairy = getSettings()
-    const month = new Date().toLocaleDateString('en-IN', { month: 'long' })
-    return template
-      .replace('{name}', item.customer.name)
-      .replace('{month}', month)
-      .replace('{amount}', Number(item.totalDue).toLocaleString('en-IN'))
-      .replace('{razorpayUrl}', item.razorpayUrl || 'cash/UPI')
-      .replace('{dairyName}', dairy.dairyName)
-  }
-
   function sendOne(item) {
-    const msg = fillTemplate(item)
+    const msg = buildReminderMessage(item.customer, item.totalDue, item.razorpayUrl)
     window.open(whatsappLink(item.customer.whatsapp_no, msg), '_blank')
     supabase.from('reminders').insert({ customer_id: item.customer.id, message: msg, sent_at: new Date().toISOString() })
   }
@@ -97,11 +84,9 @@ export default function Reminders() {
         {progress && <p className="mt-2 text-sm text-amber-800">Opening WhatsApp for {progress.name}...</p>}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 font-semibold">Message Template</h2>
-        <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={4} className="w-full rounded-lg border px-3 py-2 text-sm" />
-        <p className="mt-1 text-xs text-slate-400">{'{name}'} {'{month}'} {'{amount}'} {'{razorpayUrl}'} {'{dairyName}'}</p>
-      </div>
+      <p className="text-sm text-slate-500">
+        Message text is set in <Link to="/settings" className="text-green-600 hover:underline">Settings → WhatsApp Messages</Link>
+      </p>
 
       {loading ? (
         <p className="text-center text-slate-500">Loading...</p>

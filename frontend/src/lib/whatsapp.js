@@ -1,25 +1,6 @@
 import { generateBill } from './pdf'
-import { formatAmountPdf, formatPeriod, whatsappLink, cleanPhone } from './utils'
-import { getDairyInfo } from './constants'
-
-export function buildBillWhatsAppMessage(customer, bill, razorpayUrl) {
-  const dairy = getDairyInfo()
-  const period = formatPeriod(bill.period_start, bill.period_end)
-  const amount = formatAmountPdf(bill.total_amount)
-
-  let msg = `Hi ${customer.name},\n\n`
-  msg += `*Milk Bill — ${period}*\n`
-  msg += `Bill No: ${bill.id}\n`
-  msg += `Amount: *${amount}*\n`
-
-  if (razorpayUrl) {
-    msg += `\n*Pay online here:*\n${razorpayUrl}\n`
-  }
-
-  msg += `\n— ${dairy.name}`
-
-  return msg
-}
+import { whatsappLink, cleanPhone } from './utils'
+import { buildBillWhatsAppMessage } from './messages'
 
 function validatePhone(customer) {
   const phone = cleanPhone(customer?.whatsapp_no)
@@ -62,3 +43,5 @@ export function sendReminderWhatsApp(customer, message) {
   validatePhone(customer)
   window.open(whatsappLink(customer.whatsapp_no, message), '_blank')
 }
+
+export { buildBillWhatsAppMessage } from './messages'

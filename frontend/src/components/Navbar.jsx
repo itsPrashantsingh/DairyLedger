@@ -4,7 +4,8 @@ import { useAuth } from '../lib/auth'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/daily-entry', label: 'Daily Entry', icon: '🥛' },
+  { to: '/milk-production', label: 'Production', icon: '🐄' },
+  { to: '/daily-entry', label: 'Deliveries', icon: '🥛' },
   { to: '/customers', label: 'Customers', icon: '👥' },
   { to: '/bills', label: 'Bills', icon: '🧾' },
   { to: '/expenses', label: 'Expenses', icon: '💸' },

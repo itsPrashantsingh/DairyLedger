@@ -16,7 +16,7 @@ import { shareBillOnWhatsApp } from '../lib/whatsapp'
 import WhatsAppSendQueue from '../components/WhatsAppSendQueue'
 import LoadingOverlay from '../components/LoadingOverlay'
 import { getBillStatus, formatCurrency, whatsappLink, currentYearMonth, formatDate } from '../lib/utils'
-import { getSettings } from '../lib/constants'
+import { buildPaymentDueMessage, buildCashReceivedMessage } from '../lib/messages'
 
 export default function Bills() {
   const [bills, setBills] = useState([])
@@ -119,9 +119,8 @@ export default function Bills() {
   async function confirmCashPayment() {
     if (!cashModal || !cashAmount) return
     try {
-      const dairy = getSettings()
       const { customer, applied } = await markCashPayment(cashModal, cashAmount, cashModal.customers)
-      window.open(whatsappLink(customer.whatsapp_no, `Hi ${customer.name} bhai, ${formatCurrency(applied)} cash payment received ✓ — ${dairy.dairyName}`), '_blank')
+      window.open(whatsappLink(customer.whatsapp_no, buildCashReceivedMessage(customer, formatCurrency(applied))), '_blank')
       setCashModal(null)
       loadBills()
     } catch (err) {
@@ -130,9 +129,8 @@ export default function Bills() {
   }
 
   async function handleReminder(bill) {
-    const balance = Number(bill.total_amount) - (paidMap[bill.id] || 0)
-    const dairy = getSettings()
-    const msg = `Hi ${bill.customers.name} bhai, aapka milk bill ${formatCurrency(balance)} pending hai.${bill.razorpay_short_url ? ' Pay: ' + bill.razorpay_short_url : ''} — ${dairy.dairyName} 🥛`
+    const balance = formatCurrency(Number(bill.total_amount) - (paidMap[bill.id] || 0))
+    const msg = buildPaymentDueMessage(bill.customers, balance, bill.razorpay_short_url)
     window.open(whatsappLink(bill.customers.whatsapp_no, msg), '_blank')
   }
 

@@ -6,7 +6,24 @@ const DEFAULTS = {
   dairyGstin: '',
   dairyState: 'Uttar Pradesh',
   gstRate: 0,
-  hsnCode: '0401'
+  hsnCode: '0401',
+  billMessage: `Hi {name},
+
+*Milk Bill — {period}*
+Bill No: {billId}
+Amount: *{amount}*
+{paySection}
+— {dairyName}`,
+  billPaySection: `
+*Pay online here:*
+{razorpayUrl}
+`,
+  reminderMessage: `Hi {name} bhai, aapka {month} ka milk bill ₹{amount} abhi pending hai.
+Please pay karo: {razorpayUrl}
+— {dairyName} 🥛`,
+  paymentDueMessage: `Hi {name} bhai, aapka milk bill {amount} pending hai.{paySuffix} — {dairyName} 🥛`,
+  paymentDuePaySuffix: ` Pay: {razorpayUrl}`,
+  cashReceivedMessage: `Hi {name} bhai, {amount} cash payment received ✓ — {dairyName}`
 }
 
 export function getSettings() {
