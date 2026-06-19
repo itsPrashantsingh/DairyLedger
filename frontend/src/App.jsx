@@ -4,8 +4,10 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import DailyEntry from './pages/DailyEntry'
+import Cattle from './pages/Cattle'
+import CattleDetail from './pages/CattleDetail'
 import MilkProduction from './pages/MilkProduction'
+import DailyEntry from './pages/DailyEntry'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Bills from './pages/Bills'
@@ -49,8 +51,10 @@ export default function App() {
                 <AppLayout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/daily-entry" element={<DailyEntry />} />
                     <Route path="/milk-production" element={<MilkProduction />} />
+                    <Route path="/cattle" element={<Cattle />} />
+                    <Route path="/cattle/:id" element={<CattleDetail />} />
+                    <Route path="/daily-entry" element={<DailyEntry />} />
                     <Route path="/customers" element={<Customers />} />
                     <Route path="/customers/:id" element={<CustomerDetail />} />
                     <Route path="/bills" element={<Bills />} />

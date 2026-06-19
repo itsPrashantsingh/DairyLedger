@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { createBill, getPaidAmountForBill, createRazorpayLink, billableEntries, entrySubtotal } from '../lib/bills'
 import { openBillPdf } from '../lib/pdf'
@@ -14,6 +14,7 @@ import {
 
 export default function CustomerDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [customer, setCustomer] = useState(null)
   const [month, setMonth] = useState(currentYearMonth())
   const [entries, setEntries] = useState([])
@@ -139,9 +140,19 @@ export default function CustomerDetail() {
 
   async function handleSaveEdit(e) {
     e.preventDefault()
-    await supabase.from('customers').update(editForm).eq('id', id)
+    const { error } = await supabase.from('customers').update(editForm).eq('id', id)
+    if (error) { alert(error.message); return }
     setShowEdit(false)
     loadAll()
+  }
+
+  async function handleDelete() {
+    if (!customer) return
+    if (!window.confirm(`Delete "${customer.name}"? All bills, deliveries and payments will be removed.`)) return
+
+    const { error } = await supabase.from('customers').delete().eq('id', id)
+    if (error) { alert(error.message); return }
+    navigate('/customers')
   }
 
   async function handleSendWhatsApp() {
@@ -181,12 +192,20 @@ export default function CustomerDetail() {
             {customer.address && <p className="text-sm text-slate-500">{customer.address}</p>}
             <p className="mt-1 text-sm text-slate-400">Rate: {formatCurrency(customer.rate)}/L · Morning: {customer.morning_qty}L · Evening: {customer.evening_qty}L</p>
           </div>
-          <button
-            onClick={() => setShowEdit(true)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-          >
-            Edit
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleDelete}
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       </div>
 

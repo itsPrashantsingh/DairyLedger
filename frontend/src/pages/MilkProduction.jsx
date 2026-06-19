@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { todayISO, formatDate } from '../lib/utils'
+import { todayISO } from '../lib/utils'
 import Toast from '../components/Toast'
 import QtyControl from '../components/QtyControl'
 
 export default function MilkProduction() {
   const [date, setDate] = useState(todayISO())
-  const [production, setProduction] = useState({ morning_litres: '', evening_litres: '', notes: '' })
-  const [recent, setRecent] = useState([])
+  const [cattle, setCattle] = useState([])
+  const [entries, setEntries] = useState({})
+  const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [toast, setToast] = useState({ message: '', type: 'success' })
@@ -15,103 +16,231 @@ export default function MilkProduction() {
   useEffect(() => { loadData() }, [date])
 
   async function loadData() {
-    const [{ data: prod }, { data: history }] = await Promise.all([
-      supabase.from('milk_production').select('*').eq('date', date).maybeSingle(),
-      supabase.from('milk_production').select('*').order('date', { ascending: false }).limit(7)
+    const [{ data: list }, { data: existing }] = await Promise.all([
+      supabase.from('cattle').select('*').eq('active', true).order('name'),
+      supabase.from('cattle_milk_entries').select('*').eq('date', date)
     ])
 
-    setProduction(prod
-      ? { morning_litres: Number(prod.morning_litres), evening_litres: Number(prod.evening_litres), notes: prod.notes || '' }
-      : { morning_litres: '', evening_litres: '', notes: '' }
-    )
-    setRecent(history || [])
+    const entryMap = {}
+    ;(list || []).forEach((c) => {
+      const ex = (existing || []).find((e) => e.cattle_id === c.id)
+      entryMap[c.id] = {
+        morning_litres: ex ? Number(ex.morning_litres) : 0,
+        evening_litres: ex ? Number(ex.evening_litres) : 0,
+        active: ex ? (Number(ex.morning_litres) > 0 || Number(ex.evening_litres) > 0) : true,
+        saved: !!ex
+      }
+    })
+
+    setCattle(list || [])
+    setEntries(entryMap)
     setDirty(false)
   }
 
-  function updateField(field, value) {
-    setProduction((prev) => ({ ...prev, [field]: value }))
+  function updateEntry(id, field, value) {
+    setEntries((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
     setDirty(true)
   }
 
-  async function saveProduction() {
+  function toggleSkip(id) {
+    setEntries((prev) => {
+      const e = prev[id]
+      const active = !e.active
+      return {
+        ...prev,
+        [id]: {
+          ...e,
+          active,
+          morning_litres: active ? e.morning_litres : 0,
+          evening_litres: active ? e.evening_litres : 0
+        }
+      }
+    })
+    setDirty(true)
+  }
+
+  async function saveAll() {
     setSaving(true)
-    const { error } = await supabase.from('milk_production').upsert({
-      date,
-      morning_litres: Number(production.morning_litres) || 0,
-      evening_litres: Number(production.evening_litres) || 0,
-      notes: production.notes || null
-    }, { onConflict: 'date' })
+    const errors = []
+
+    const rows = cattle
+      .map((c) => {
+        const e = entries[c.id]
+        if (!e?.active) return null
+        const morning = Number(e.morning_litres) || 0
+        const evening = Number(e.evening_litres) || 0
+        if (!morning && !evening) return null
+        return {
+          cattle_id: c.id,
+          date,
+          morning_litres: morning,
+          evening_litres: evening
+        }
+      })
+      .filter(Boolean)
+
+    if (rows.length) {
+      const { error } = await supabase.from('cattle_milk_entries').upsert(rows, { onConflict: 'cattle_id,date' })
+      if (error) errors.push(error.message)
+    }
+
+    const skippedIds = cattle
+      .filter((c) => {
+        const e = entries[c.id]
+        return !e?.active || (!Number(e.morning_litres) && !Number(e.evening_litres))
+      })
+      .map((c) => c.id)
+
+    if (skippedIds.length) {
+      await supabase.from('cattle_milk_entries').delete().eq('date', date).in('cattle_id', skippedIds)
+    }
 
     setSaving(false)
 
-    if (error) {
-      setToast({ message: error.message, type: 'error' })
+    if (errors.length) {
+      setToast({ message: errors.join(' · '), type: 'error' })
     } else {
-      const total = (Number(production.morning_litres) || 0) + (Number(production.evening_litres) || 0)
-      setToast({ message: `✓ Saved ${total.toFixed(1)} L for ${formatDate(date)}`, type: 'success' })
+      const total = summary.total
+      setToast({ message: `✓ Saved ${total.toFixed(1)} L from ${rows.length} cattle`, type: 'success' })
       setDirty(false)
       loadData()
     }
   }
 
-  const total = (Number(production.morning_litres) || 0) + (Number(production.evening_litres) || 0)
+  const filtered = cattle.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.breed || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  const summary = filtered.reduce(
+    (acc, c) => {
+      const e = entries[c.id]
+      if (!e?.active) return acc
+      const m = Number(e.morning_litres) || 0
+      const ev = Number(e.evening_litres) || 0
+      const t = m + ev
+      if (!t) return acc
+
+      acc.rows.push({
+        id: c.id,
+        name: c.name,
+        breed: c.breed,
+        category: c.category,
+        morning: m,
+        evening: ev,
+        total: t
+      })
+      acc.morning += m
+      acc.evening += ev
+      acc.total += t
+      if (c.category === 'cow') acc.cow += t
+      if (c.category === 'buffalo') acc.buffalo += t
+      return acc
+    },
+    { rows: [], morning: 0, evening: 0, total: 0, cow: 0, buffalo: 0 }
+  )
 
   return (
-    <div className="pb-28">
+    <div className="pb-80">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Milk Production</h1>
-          <p className="text-sm text-slate-500">Total litres collected at the dairy</p>
+          <p className="text-xs text-slate-500">Morning & evening litres per cattle</p>
         </div>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-lg border px-3 py-2 text-sm" />
       </div>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-        <p className="mb-3 text-sm font-semibold text-blue-900">🐄 How much milk today?</p>
-        <div className="grid grid-cols-2 gap-3">
-          <QtyControl label="Morning (L)" value={production.morning_litres} onChange={(v) => updateField('morning_litres', v)} />
-          <QtyControl label="Evening (L)" value={production.evening_litres} onChange={(v) => updateField('evening_litres', v)} color="amber" />
-        </div>
-        <p className="mt-3 text-center text-lg font-bold text-blue-900">{total.toFixed(1)} L total</p>
-        <textarea
-          placeholder="Notes (optional)"
-          value={production.notes}
-          onChange={(e) => updateField('notes', e.target.value)}
-          rows={2}
-          className="mt-3 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm"
-        />
-      </div>
+      {cattle.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-8 text-center text-blue-800">
+          No cattle yet. Add cattle in the <strong>Cattle</strong> tab first.
+        </p>
+      ) : (
+        <>
+          <input
+            type="search"
+            placeholder="Search cattle..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-3 w-full rounded-lg border px-4 py-2.5"
+          />
 
-      {recent.length > 0 && (
-        <div className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold text-slate-600">Recent days</h2>
+          <div className="mb-3 rounded-lg bg-blue-600 px-3 py-2 text-center text-sm font-medium text-white">
+            {summary.total.toFixed(1)} L total · ☀️ {summary.morning.toFixed(1)} · 🌙 {summary.evening.toFixed(1)}
+          </div>
+
           <div className="space-y-2">
-            {recent.map((row) => (
-              <button
-                key={row.date}
-                type="button"
-                onClick={() => setDate(row.date)}
-                className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm ${
-                  row.date === date ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'
-                }`}
-              >
-                <span className="font-medium">{formatDate(row.date)}</span>
-                <span className="text-slate-600">
-                  ☀️ {Number(row.morning_litres)} L · 🌙 {Number(row.evening_litres)} L
-                  <span className="ml-2 font-bold text-blue-800">{Number(row.total_litres)} L</span>
-                </span>
-              </button>
-            ))}
+            {filtered.map((c) => {
+              const e = entries[c.id] || {}
+              return (
+                <div key={c.id} className={`rounded-xl border bg-white p-3 ${e.active ? 'border-slate-200' : 'border-red-200 bg-red-50'}`}>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-800">{c.name}</p>
+                      <p className="text-xs capitalize text-slate-500">{c.category}{c.breed ? ` · ${c.breed}` : ''}</p>
+                      {e.saved && !dirty && <span className="text-[10px] text-green-600">saved ✓</span>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleSkip(c.id)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${e.active ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-600'}`}
+                    >
+                      {e.active ? 'Active' : 'Skip'}
+                    </button>
+                  </div>
+                  {e.active && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <QtyControl label="☀️ Morning" value={e.morning_litres} onChange={(v) => updateEntry(c.id, 'morning_litres', v)} />
+                      <QtyControl label="🌙 Evening" value={e.evening_litres} onChange={(v) => updateEntry(c.id, 'evening_litres', v)} color="amber" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {summary.rows.length > 0 && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 font-semibold text-slate-800">Today&apos;s summary</h2>
+          <div className="mb-3 flex flex-wrap gap-3 text-sm">
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-800">Total: <strong>{summary.total.toFixed(1)} L</strong></span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800">Cows: <strong>{summary.cow.toFixed(1)} L</strong></span>
+            <span className="rounded-full bg-slate-200 px-3 py-1 text-slate-700">Buffaloes: <strong>{summary.buffalo.toFixed(1)} L</strong></span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-slate-500">
+                <tr>
+                  <th className="pb-2">Name</th>
+                  <th className="pb-2">Breed</th>
+                  <th className="pb-2">☀️</th>
+                  <th className="pb-2">🌙</th>
+                  <th className="pb-2">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.rows.map((r) => (
+                  <tr key={r.id} className="border-t border-slate-100">
+                    <td className="py-1.5 font-medium">{r.name}</td>
+                    <td className="py-1.5 text-slate-500">{r.breed || '—'}</td>
+                    <td className="py-1.5">{r.morning}</td>
+                    <td className="py-1.5">{r.evening}</td>
+                    <td className="py-1.5 font-semibold">{r.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] backdrop-blur md:bottom-0 md:left-56">
         <button
-          onClick={saveProduction}
-          disabled={saving}
+          onClick={saveAll}
+          disabled={saving || cattle.length === 0}
           className={`w-full rounded-xl py-3.5 text-base font-bold text-white shadow-lg disabled:opacity-50 ${
             dirty ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-600 hover:bg-slate-700'
           }`}

@@ -132,3 +132,79 @@ export function downloadImportTemplate() {
     }]
   }])
 }
+
+const CATTLE_FIELDS = {
+  name: ['name', 'cattle', 'cattle_name', 'cattle name'],
+  breed: ['breed', 'type'],
+  category: ['category', 'animal', 'animal_type', 'cow_buffalo']
+}
+
+function matchCattleField(header) {
+  const norm = normalizeKey(header)
+  for (const [field, aliases] of Object.entries(CATTLE_FIELDS)) {
+    if (aliases.includes(norm) || norm === field) return field
+  }
+  return null
+}
+
+function normalizeCategory(val) {
+  const v = String(val || '').trim().toLowerCase()
+  if (v === 'cow' || v === 'cows' || v === 'gaay' || v === 'gai') return 'cow'
+  if (v === 'buffalo' || v === 'buffaloes' || v === 'bhains' || v === 'bhainsa') return 'buffalo'
+  return v === 'cow' || v === 'buffalo' ? v : ''
+}
+
+export function rowsToCattle(rows) {
+  if (!rows.length) return []
+
+  const headers = Object.keys(rows[0])
+  const headerMap = {}
+  headers.forEach((h) => {
+    const field = matchCattleField(h)
+    if (field) headerMap[h] = field
+  })
+
+  return rows
+    .map((row) => {
+      const cattle = {
+        name: '',
+        breed: '',
+        category: '',
+        custom_fields: {},
+        active: true
+      }
+
+      Object.entries(row).forEach(([header, value]) => {
+        const field = headerMap[header]
+        const strVal = value === null || value === undefined ? '' : String(value).trim()
+        if (!strVal) return
+
+        if (field === 'category') {
+          cattle.category = normalizeCategory(strVal)
+        } else if (field) {
+          cattle[field] = strVal
+        } else if (header.trim()) {
+          cattle.custom_fields[header.trim()] = strVal
+        }
+      })
+
+      return cattle
+    })
+    .filter((c) => c.name && (c.category === 'cow' || c.category === 'buffalo'))
+}
+
+export function downloadCattleImportTemplate() {
+  downloadWorkbook('cattle_import_template.xlsx', [{
+    name: 'Sample',
+    rows: [{
+      name: 'Gauri',
+      breed: 'Sahiwal',
+      category: 'cow',
+      notes: 'Healthy'
+    }, {
+      name: 'Lakshmi',
+      breed: 'Murrah',
+      category: 'buffalo'
+    }]
+  }])
+}

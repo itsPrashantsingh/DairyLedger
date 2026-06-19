@@ -4,13 +4,13 @@ import { useAuth } from '../lib/auth'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/milk-production', label: 'Production', icon: '🐄' },
-  { to: '/daily-entry', label: 'Deliveries', icon: '🥛' },
+  { to: '/cattle', label: 'Cattle', icon: '🐄' },
+  { to: '/milk-production', label: 'Production', icon: '🥛' },
+  { to: '/daily-entry', label: 'Deliveries', icon: '🚚' },
   { to: '/customers', label: 'Customers', icon: '👥' },
   { to: '/bills', label: 'Bills', icon: '🧾' },
   { to: '/expenses', label: 'Expenses', icon: '💸' },
   { to: '/reminders', label: 'Reminders', icon: '🔔' },
-  { to: '/import-export', label: 'Import/Export', icon: '📁' },
   { to: '/settings', label: 'Settings', icon: '⚙️' }
 ]
 

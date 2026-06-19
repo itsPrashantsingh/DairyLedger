@@ -41,22 +41,22 @@ export default function Dashboard() {
     const ym = currentYearMonth()
     const { start, end } = getMonthBounds(ym)
 
-    const [paymentsRes, billsRes, productionRes, deliveredRes, expensesRes, allPaymentsRes, allExpensesRes, production30Res] =
+    const [paymentsRes, billsRes, cattleEntriesRes, deliveredRes, expensesRes, allPaymentsRes, allExpensesRes, cattleEntries30Res] =
       await Promise.all([
         supabase.from('payments').select('amount').gte('paid_at', start).lte('paid_at', end + 'T23:59:59'),
         supabase.from('bills').select('*, customers(*)').eq('paid', false),
-        supabase.from('milk_production').select('morning_litres, evening_litres, total_litres').gte('date', start).lte('date', end),
+        supabase.from('cattle_milk_entries').select('morning_litres, evening_litres, total_litres').gte('date', start).lte('date', end),
         supabase.from('daily_entries').select('total_qty').gte('date', start).lte('date', end),
         supabase.from('expenses').select('amount').gte('date', start).lte('date', end),
         supabase.from('payments').select('amount, paid_at'),
         supabase.from('expenses').select('amount, date'),
-        supabase.from('milk_production').select('date, morning_litres, evening_litres, total_litres').gte('date', last30Days()[0].date)
+        supabase.from('cattle_milk_entries').select('date, morning_litres, evening_litres, total_litres').gte('date', last30Days()[0].date)
       ])
 
     const monthRevenue = (paymentsRes.data || []).reduce((s, p) => s + Number(p.amount), 0)
     const monthExpenses = (expensesRes.data || []).reduce((s, e) => s + Number(e.amount), 0)
-    const milkMorning = (productionRes.data || []).reduce((s, e) => s + Number(e.morning_litres), 0)
-    const milkEvening = (productionRes.data || []).reduce((s, e) => s + Number(e.evening_litres), 0)
+    const milkMorning = (cattleEntriesRes.data || []).reduce((s, e) => s + Number(e.morning_litres), 0)
+    const milkEvening = (cattleEntriesRes.data || []).reduce((s, e) => s + Number(e.evening_litres), 0)
     const milkProduced = milkMorning + milkEvening
     const milkDelivered = (deliveredRes.data || []).reduce((s, e) => s + Number(e.total_qty), 0)
 
@@ -98,15 +98,19 @@ export default function Dashboard() {
     setRevenueChart(revData)
 
     const days = last30Days()
-    const milkData = days.map((d) => {
-      const row = (production30Res.data || []).find((e) => e.date === d.date)
-      return {
-        day: d.label,
-        morning: row ? Number(row.morning_litres) : 0,
-        evening: row ? Number(row.evening_litres) : 0,
-        total: row ? Number(row.total_litres) : 0
-      }
-    })
+    const byDate = {}
+    for (const e of cattleEntries30Res.data || []) {
+      if (!byDate[e.date]) byDate[e.date] = { morning: 0, evening: 0, total: 0 }
+      byDate[e.date].morning += Number(e.morning_litres)
+      byDate[e.date].evening += Number(e.evening_litres)
+      byDate[e.date].total += Number(e.total_litres)
+    }
+    const milkData = days.map((d) => ({
+      day: d.label,
+      morning: byDate[d.date]?.morning || 0,
+      evening: byDate[d.date]?.evening || 0,
+      total: byDate[d.date]?.total || 0
+    }))
     setMilkChart(milkData)
 
     setUnpaidBills(billsWithPaid.filter((b) => getBillStatus(b, b.paidAmount) !== 'paid'))

@@ -19,6 +19,8 @@ In order:
 2. `supabase/migrations/002_milk_production.sql`
 3. `supabase/migrations/003_gst.sql`
 4. `supabase/migrations/004_bill_constraints.sql`
+5. `supabase/migrations/005_auth_rls.sql`
+6. `supabase/migrations/006_cattle.sql`
 
 ### 2. Code on GitHub
 

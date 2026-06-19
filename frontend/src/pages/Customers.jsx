@@ -98,10 +98,23 @@ export default function Customers() {
     const payload = { ...form, custom_fields }
 
     if (editing) {
-      await supabase.from('customers').update(payload).eq('id', editing.id)
+      const { error } = await supabase.from('customers').update(payload).eq('id', editing.id)
+      if (error) { alert(error.message); return }
     } else {
-      await supabase.from('customers').insert(payload)
+      const { error } = await supabase.from('customers').insert(payload)
+      if (error) { alert(error.message); return }
     }
+
+    setShowModal(false)
+    loadCustomers()
+  }
+
+  async function handleDelete() {
+    if (!editing) return
+    if (!window.confirm(`Delete "${editing.name}"? All bills, deliveries and payments for this customer will also be removed.`)) return
+
+    const { error } = await supabase.from('customers').delete().eq('id', editing.id)
+    if (error) { alert(error.message); return }
 
     setShowModal(false)
     loadCustomers()
@@ -210,6 +223,12 @@ export default function Customers() {
               <button type="submit" className="flex-1 rounded-lg bg-green-600 py-2 font-medium text-white">Save</button>
               <button type="button" onClick={() => setShowModal(false)} className="flex-1 rounded-lg border py-2">Cancel</button>
             </div>
+
+            {editing && (
+              <button type="button" onClick={handleDelete} className="mt-3 w-full rounded-lg border border-red-300 py-2 text-sm text-red-600 hover:bg-red-50">
+                Delete customer
+              </button>
+            )}
           </form>
         </div>
       )}

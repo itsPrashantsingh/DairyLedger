@@ -5,8 +5,8 @@ import { getPaidAmountForBill } from './bills'
 
 export async function exportMilkProduction(startDate, endDate, format = 'xlsx') {
   const { data, error } = await supabase
-    .from('milk_production')
-    .select('*')
+    .from('cattle_milk_entries')
+    .select('date, morning_litres, evening_litres, total_litres, cattle(name, breed, category)')
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date')
@@ -15,18 +15,37 @@ export async function exportMilkProduction(startDate, endDate, format = 'xlsx') 
 
   const rows = (data || []).map((r) => ({
     date: r.date,
+    cattle_name: r.cattle?.name || '',
+    breed: r.cattle?.breed || '',
+    category: r.cattle?.category || '',
     morning_litres: Number(r.morning_litres),
     evening_litres: Number(r.evening_litres),
-    total_litres: Number(r.total_litres),
-    notes: r.notes || ''
+    total_litres: Number(r.total_litres)
   }))
 
-  const filename = `milk_production_${startDate}_to_${endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`
+  const filename = `cattle_milk_production_${startDate}_to_${endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`
   if (format === 'csv') {
     downloadCsv(filename, rows)
   } else {
     downloadWorkbook(filename, [{ name: 'Production', rows }])
   }
+  return rows.length
+}
+
+export async function exportCattleList(format = 'xlsx') {
+  const { data, error } = await supabase.from('cattle').select('*').order('name')
+  if (error) throw error
+
+  const rows = (data || []).map((c) => ({
+    name: c.name,
+    breed: c.breed || '',
+    category: c.category,
+    active: c.active ? 'yes' : 'no'
+  }))
+
+  const filename = `cattle_${new Date().toISOString().slice(0, 10)}.${format === 'csv' ? 'csv' : 'xlsx'}`
+  if (format === 'csv') downloadCsv(filename, rows)
+  else downloadWorkbook(filename, [{ name: 'Cattle', rows }])
   return rows.length
 }
 

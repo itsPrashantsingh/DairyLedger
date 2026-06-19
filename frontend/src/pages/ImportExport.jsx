@@ -3,6 +3,7 @@ import { todayISO, currentYearMonth } from '../lib/utils'
 import {
   exportMilkProduction,
   exportCustomerList,
+  exportCattleList,
   exportMonthlyBillStatus,
   exportCustomerDeliveries
 } from '../lib/export-data'
@@ -46,8 +47,8 @@ export default function ImportExport() {
       )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-semibold text-slate-800">🥛 Milk Production</h2>
-        <p className="mt-1 text-sm text-slate-500">Total dairy production (morning + evening litres per day)</p>
+        <h2 className="font-semibold text-slate-800">🐄 Cattle Milk Production</h2>
+        <p className="mt-1 text-sm text-slate-500">Per-cattle morning/evening litres for a date range</p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
             <label className="text-xs text-slate-500">From</label>
@@ -98,6 +99,19 @@ export default function ImportExport() {
             onClick={() => runExport(() => exportCustomerDeliveries(deliveryStart, deliveryEnd, 'csv'), 'Customer deliveries CSV')}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
           >
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="font-semibold text-slate-800">🐄 Cattle List</h2>
+        <p className="mt-1 text-sm text-slate-500">All cattle with name, breed, category</p>
+        <div className="mt-4 flex gap-3">
+          <button disabled={!!loading} onClick={() => runExport(() => exportCattleList('xlsx'), 'Cattle list')} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            Export Excel
+          </button>
+          <button disabled={!!loading} onClick={() => runExport(() => exportCattleList('csv'), 'Cattle list CSV')} className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50">
             Export CSV
           </button>
         </div>

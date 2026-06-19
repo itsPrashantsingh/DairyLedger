@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getSettings, saveSettings } from '../lib/constants'
 import { useAuth } from '../lib/auth'
 import { MESSAGE_KEYS, MESSAGE_LABELS, MESSAGE_PLACEHOLDERS } from '../lib/messages'
+import { Link } from 'react-router-dom'
 
 export default function Settings() {
   const { user, logout } = useAuth()
@@ -75,6 +76,10 @@ export default function Settings() {
         >
           Sign out
         </button>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+        <Link to="/import-export" className="text-green-600 hover:underline">Import & Export reports →</Link>
       </div>
 
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
