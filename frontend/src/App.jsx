@@ -11,9 +11,11 @@ import DailyEntry from './pages/DailyEntry'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
 import Bills from './pages/Bills'
+import Sales from './pages/Sales'
 import Expenses from './pages/Expenses'
 import Reminders from './pages/Reminders'
 import ImportExport from './pages/ImportExport'
+import ActivityLogs from './pages/ActivityLogs'
 import Settings from './pages/Settings'
 import PaymentSuccess from './pages/PaymentSuccess'
 
@@ -49,9 +51,11 @@ export default function App() {
                     <Route path="/customers" element={<Customers />} />
                     <Route path="/customers/:id" element={<CustomerDetail />} />
                     <Route path="/bills" element={<Bills />} />
+                    <Route path="/sales" element={<Sales />} />
                     <Route path="/expenses" element={<Expenses />} />
                     <Route path="/reminders" element={<Reminders />} />
                     <Route path="/import-export" element={<ImportExport />} />
+                    <Route path="/logs" element={<ActivityLogs />} />
                     <Route path="/settings" element={<Settings />} />
                   </Routes>
                 </AppLayout>

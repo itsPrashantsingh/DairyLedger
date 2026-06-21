@@ -5,7 +5,8 @@ import {
   exportCustomerList,
   exportCattleList,
   exportMonthlyBillStatus,
-  exportCustomerDeliveries
+  exportCustomerDeliveries,
+  exportProductSales
 } from '../lib/export-data'
 
 export default function ImportExport() {
@@ -17,6 +18,8 @@ export default function ImportExport() {
   const [prodEnd, setProdEnd] = useState(todayISO())
   const [deliveryStart, setDeliveryStart] = useState(prodStart)
   const [deliveryEnd, setDeliveryEnd] = useState(todayISO())
+  const [salesStart, setSalesStart] = useState(prodStart)
+  const [salesEnd, setSalesEnd] = useState(todayISO())
   const [billMonth, setBillMonth] = useState(currentYearMonth())
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState('')
@@ -97,6 +100,35 @@ export default function ImportExport() {
           <button
             disabled={!!loading}
             onClick={() => runExport(() => exportCustomerDeliveries(deliveryStart, deliveryEnd, 'csv'), 'Customer deliveries CSV')}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="font-semibold text-slate-800">🛒 Product Sales</h2>
+        <p className="mt-1 text-sm text-slate-500">Other product sales with GST, buyer details, and invoice totals</p>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-xs text-slate-500">From</label>
+            <input type="date" value={salesStart} onChange={(e) => setSalesStart(e.target.value)} className="mt-1 block rounded-lg border px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">To</label>
+            <input type="date" value={salesEnd} onChange={(e) => setSalesEnd(e.target.value)} className="mt-1 block rounded-lg border px-3 py-2 text-sm" />
+          </div>
+          <button
+            disabled={!!loading}
+            onClick={() => runExport(() => exportProductSales(salesStart, salesEnd, 'xlsx'), 'Product sales')}
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            Export Excel
+          </button>
+          <button
+            disabled={!!loading}
+            onClick={() => runExport(() => exportProductSales(salesStart, salesEnd, 'csv'), 'Product sales CSV')}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
           >
             Export CSV

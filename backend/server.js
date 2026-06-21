@@ -37,9 +37,16 @@ app.use('/api/razorpay', (req, res, next) => {
   return requireApiKey(req, res, next)
 })
 app.use('/api/razorpay', require('./routes/razorpay'))
+app.use('/api/daily-entry', require('./routes/daily-entry'))
+app.use('/api/logs', require('./routes/logs'))
 app.use('/webhook', require('./routes/webhook'))
 
 app.get('/health', (req, res) => res.json({ ok: true }))
+
+app.use((err, req, res, _next) => {
+  console.error(err)
+  res.status(500).json({ error: err.message || 'Server error' })
+})
 
 const port = process.env.PORT || 3001
 app.listen(port, () => console.log('Server running on port', port))

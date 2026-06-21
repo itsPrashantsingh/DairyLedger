@@ -141,29 +141,20 @@ For a small dairy (~50 customers), **Render free is enough**.
 
 ---
 
-## Admin login (one-time Supabase setup)
+## Team login (one-time Supabase setup)
 
-The app uses **Supabase Auth** — single admin email + password.
+The app uses **Supabase Auth**. Every user added in Supabase Authentication can sign in, and delivery actions are logged with that user's email.
 
 ### 1. Supabase Dashboard → Authentication
 
 1. **Providers** → Email → keep enabled
 2. **Sign In / Providers** → turn **OFF** “Allow new users to sign up” (so random people cannot register)
-3. **Users** → **Add user** → enter your admin email + password
+3. **Users** → **Add user** → enter each team member's email + password
 
-### 2. Run RLS migration (SQL Editor)
+### 2. Run RLS and logging migrations (SQL Editor)
 
 Paste and run `supabase/migrations/005_auth_rls.sql` — blocks anonymous access to all tables.
-
-### 3. Vercel env var
-
-Add:
-
-| Variable | Value |
-|----------|--------|
-| `VITE_ADMIN_EMAIL` | Same email as the admin user you created |
-
-Redeploy Vercel after adding the variable.
+Then run `supabase/migrations/008_delivery_workflow_logs.sql` — adds delivery locks and activity logs.
 
 ### What stays public
 

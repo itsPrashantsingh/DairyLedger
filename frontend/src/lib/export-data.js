@@ -184,3 +184,45 @@ export async function exportCustomerDeliveries(startDate, endDate, format = 'xls
   }
   return rows.length
 }
+
+export async function exportProductSales(startDate, endDate, format = 'xlsx') {
+  const { data, error } = await supabase
+    .from('product_sales')
+    .select('*')
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date')
+
+  if (error) throw error
+
+  const rows = (data || []).map((sale) => ({
+    date: sale.date,
+    invoice_no: sale.invoice_no,
+    buyer_name: sale.buyer_name,
+    buyer_phone: sale.buyer_phone || '',
+    buyer_gstin: sale.buyer_gstin || '',
+    product_name: sale.product_name,
+    category: sale.category || '',
+    hsn_code: sale.hsn_code || '',
+    quantity: Number(sale.quantity),
+    unit: sale.unit,
+    rate_per_unit: Number(sale.rate),
+    taxable_amount: Number(sale.subtotal),
+    gst_rate: Number(sale.gst_rate),
+    cgst: Number(sale.cgst || 0),
+    sgst: Number(sale.sgst || 0),
+    igst: Number(sale.igst || 0),
+    total_amount: Number(sale.total_amount),
+    payment_mode: sale.payment_mode || '',
+    sent_at: sale.sent_at || '',
+    notes: sale.notes || ''
+  }))
+
+  const filename = `product_sales_${startDate}_to_${endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`
+  if (format === 'csv') {
+    downloadCsv(filename, rows)
+  } else {
+    downloadWorkbook(filename, [{ name: 'Product Sales', rows }])
+  }
+  return rows.length
+}

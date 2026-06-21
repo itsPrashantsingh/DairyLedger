@@ -3,8 +3,6 @@ import { supabase } from './supabase'
 
 const AuthContext = createContext(null)
 
-const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || '').trim().toLowerCase()
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -25,11 +23,6 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-
-    if (ADMIN_EMAIL && data.user?.email?.toLowerCase() !== ADMIN_EMAIL) {
-      await supabase.auth.signOut()
-      throw new Error('This account is not authorized')
-    }
 
     return data
   }

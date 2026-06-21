@@ -41,7 +41,7 @@ export default function Login() {
         <div className="mb-6 text-center">
           <p className="text-3xl">🥛</p>
           <h1 className="mt-2 text-xl font-bold text-green-700">{dairyName}</h1>
-          <p className="mt-1 text-sm text-slate-500">Admin login</p>
+          <p className="mt-1 text-sm text-slate-500">Team login</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

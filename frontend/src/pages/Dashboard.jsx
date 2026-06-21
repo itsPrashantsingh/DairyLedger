@@ -19,6 +19,8 @@ import { buildPaymentDueMessage, buildCashReceivedMessage } from '../lib/message
 export default function Dashboard() {
   const [stats, setStats] = useState({
     revenue: 0,
+    milkRevenue: 0,
+    productRevenue: 0,
     outstanding: 0,
     milkProduced: 0,
     milkMorning: 0,
@@ -32,29 +34,28 @@ export default function Dashboard() {
   const [recentPayments, setRecentPayments] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    wakeBackend().then(() => reconcileRazorpayPayments().catch(() => {}))
-    loadDashboard()
-  }, [])
-
   async function loadDashboard() {
     setLoading(true)
     const ym = currentYearMonth()
     const { start, end } = getMonthBounds(ym)
 
-    const [paymentsRes, billsRes, cattleEntriesRes, deliveredRes, expensesRes, allPaymentsRes, allExpensesRes, cattleEntries30Res] =
+    const [paymentsRes, productSalesRes, billsRes, cattleEntriesRes, deliveredRes, expensesRes, allPaymentsRes, allProductSalesRes, allExpensesRes, cattleEntries30Res] =
       await Promise.all([
         supabase.from('payments').select('amount').gte('paid_at', start).lte('paid_at', end + 'T23:59:59'),
+        supabase.from('product_sales').select('total_amount').gte('date', start).lte('date', end),
         supabase.from('bills').select('*, customers(*)').eq('paid', false),
         supabase.from('cattle_milk_entries').select('morning_litres, evening_litres, total_litres').gte('date', start).lte('date', end),
         supabase.from('daily_entries').select('total_qty').gte('date', start).lte('date', end),
         supabase.from('expenses').select('amount').gte('date', start).lte('date', end),
         supabase.from('payments').select('amount, paid_at'),
+        supabase.from('product_sales').select('total_amount, date'),
         supabase.from('expenses').select('amount, date'),
         supabase.from('cattle_milk_entries').select('date, morning_litres, evening_litres, total_litres').gte('date', last30Days()[0].date)
       ])
 
-    const monthRevenue = (paymentsRes.data || []).reduce((s, p) => s + Number(p.amount), 0)
+    const milkRevenue = (paymentsRes.data || []).reduce((s, p) => s + Number(p.amount), 0)
+    const productRevenue = (productSalesRes.data || []).reduce((s, p) => s + Number(p.total_amount), 0)
+    const monthRevenue = milkRevenue + productRevenue
     const monthExpenses = (expensesRes.data || []).reduce((s, e) => s + Number(e.amount), 0)
     const milkMorning = (cattleEntriesRes.data || []).reduce((s, e) => s + Number(e.morning_litres), 0)
     const milkEvening = (cattleEntriesRes.data || []).reduce((s, e) => s + Number(e.evening_litres), 0)
@@ -77,6 +78,8 @@ export default function Dashboard() {
 
     setStats({
       revenue: monthRevenue,
+      milkRevenue,
+      productRevenue,
       outstanding,
       milkProduced,
       milkMorning,
@@ -88,13 +91,16 @@ export default function Dashboard() {
     const months = last6Months()
     const revData = months.map((m) => {
       const { start: ms, end: me } = getMonthBounds(m.key)
-      const rev = (allPaymentsRes.data || [])
+      const milkRev = (allPaymentsRes.data || [])
         .filter((p) => p.paid_at >= ms && p.paid_at <= me + 'T23:59:59')
         .reduce((s, p) => s + Number(p.amount), 0)
+      const productRev = (allProductSalesRes.data || [])
+        .filter((p) => p.date >= ms && p.date <= me)
+        .reduce((s, p) => s + Number(p.total_amount), 0)
       const exp = (allExpensesRes.data || [])
         .filter((e) => e.date >= ms && e.date <= me)
         .reduce((s, e) => s + Number(e.amount), 0)
-      return { month: m.label, revenue: rev, expenses: exp }
+      return { month: m.label, revenue: milkRev + productRev, milkRevenue: milkRev, productRevenue: productRev, expenses: exp }
     })
     setRevenueChart(revData)
 
@@ -126,6 +132,11 @@ export default function Dashboard() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    wakeBackend().then(() => reconcileRazorpayPayments().catch(() => {}))
+    Promise.resolve().then(loadDashboard)
+  }, [])
+
   async function handleMarkPaid(bill) {
     const balance = Number(bill.total_amount) - bill.paidAmount
     const amount = prompt(`Enter cash amount received (balance: ${formatCurrency(balance)}):`, balance)
@@ -155,8 +166,13 @@ export default function Dashboard() {
       <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard title="Revenue (This Month)" value={formatCurrency(stats.revenue)} color="green" />
+        <StatCard title="Total Revenue" value={formatCurrency(stats.revenue)} subtitle="Milk + other sales" color="green" />
+        <StatCard title="Milk Revenue" value={formatCurrency(stats.milkRevenue)} color="slate" />
+        <StatCard title="Other Sales" value={formatCurrency(stats.productRevenue)} color="amber" />
         <StatCard title="Outstanding" value={formatCurrency(stats.outstanding)} color="red" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           title="Milk Produced (L)"
           value={stats.milkProduced.toFixed(1)}
@@ -182,7 +198,8 @@ export default function Dashboard() {
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v) => formatCurrency(v)} />
-              <Bar dataKey="revenue" fill="#16a34a" name="Revenue" />
+              <Bar dataKey="milkRevenue" stackId="revenue" fill="#16a34a" name="Milk Revenue" />
+              <Bar dataKey="productRevenue" stackId="revenue" fill="#d97706" name="Other Sales" />
               <Bar dataKey="expenses" fill="#dc2626" name="Expenses" />
             </BarChart>
           </ResponsiveContainer>

@@ -9,8 +9,10 @@ const links = [
   { to: '/daily-entry', label: 'Deliveries', icon: '🚚' },
   { to: '/customers', label: 'Customers', icon: '👥' },
   { to: '/bills', label: 'Bills', icon: '🧾' },
+  { to: '/sales', label: 'Sales', icon: '🛒' },
   { to: '/expenses', label: 'Expenses', icon: '💸' },
   { to: '/reminders', label: 'Reminders', icon: '🔔' },
+  { to: '/logs', label: 'Logs', icon: '🕒' },
   { to: '/settings', label: 'Settings', icon: '⚙️' }
 ]
 

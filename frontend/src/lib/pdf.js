@@ -186,3 +186,132 @@ export function getBillPdfBlob(customer, entries, bill) {
   const doc = generateBill(customer, entries, bill)
   return doc.output('blob')
 }
+
+export function generateProductSaleBill(sale) {
+  const dairy = getDairyInfo()
+  const doc = new jsPDF()
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const contentW = pageWidth - MARGIN * 2
+  let y = MARGIN
+
+  const subtotal = Number(sale.subtotal || 0)
+  const cgst = Number(sale.cgst || 0)
+  const sgst = Number(sale.sgst || 0)
+  const gstRate = Number(sale.gst_rate || 0)
+  const grandTotal = Number(sale.total_amount || 0)
+
+  drawBox(doc, MARGIN, y, contentW, 38)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(...INK)
+  doc.text(dairy.name, MARGIN + 4, y + 10)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  ;[dairy.address, `Ph: ${dairy.phone}`, dairy.gstin ? `GSTIN: ${dairy.gstin}` : null]
+    .filter(Boolean)
+    .forEach((line, i) => doc.text(line, MARGIN + 4, y + 17 + i * 4.5))
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text(gstRate > 0 ? 'TAX INVOICE' : 'SALE INVOICE', pageWidth - MARGIN - 4, y + 10, { align: 'right' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text(`Invoice No: ${sale.invoice_no}`, pageWidth - MARGIN - 4, y + 17, { align: 'right' })
+  doc.text(`Date: ${formatDate(sale.date)}`, pageWidth - MARGIN - 4, y + 22, { align: 'right' })
+  if (dairy.state) doc.text(`Place of Supply: ${dairy.state}`, pageWidth - MARGIN - 4, y + 27, { align: 'right' })
+
+  y += 44
+  drawBox(doc, MARGIN, y, contentW, 22)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.text('BILL TO', MARGIN + 4, y + 6)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text(sale.buyer_name, MARGIN + 4, y + 12)
+  const buyerLine = [sale.buyer_phone ? `Mob: ${sale.buyer_phone}` : null, sale.buyer_gstin ? `GSTIN: ${sale.buyer_gstin}` : null].filter(Boolean).join('  |  ')
+  doc.setFontSize(8)
+  if (buyerLine) doc.text(buyerLine, MARGIN + 4, y + 17)
+
+  y += 28
+  autoTable(doc, {
+    startY: y,
+    head: [['#', 'Product', 'HSN', 'Qty', 'Unit', `Rate (per ${sale.unit || 'unit'})`, 'Taxable', 'GST %', 'Amount']],
+    body: [[
+      '1',
+      sale.product_name,
+      sale.hsn_code || '',
+      formatQtyPdf(sale.quantity),
+      sale.unit,
+      formatRatePdf(sale.rate),
+      formatAmountPdf(subtotal),
+      gstRate.toFixed(2),
+      formatAmountPdf(grandTotal)
+    ]],
+    theme: 'grid',
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      lineColor: LINE,
+      lineWidth: 0.2,
+      textColor: INK
+    },
+    headStyles: {
+      fillColor: [248, 250, 252],
+      textColor: INK,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 8 },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 16 },
+      4: { halign: 'center', cellWidth: 16 },
+      5: { halign: 'right', cellWidth: 18 },
+      6: { halign: 'right', cellWidth: 24 },
+      7: { halign: 'right', cellWidth: 16 },
+      8: { halign: 'right', cellWidth: 26 }
+    },
+    margin: { left: MARGIN, right: MARGIN }
+  })
+
+  y = doc.lastAutoTable.finalY + 6
+  const summaryX = pageWidth - MARGIN - 72
+  const summaryW = 72
+  const rows = [['Taxable Amount', formatAmountPdf(subtotal)]]
+  if (gstRate > 0) {
+    rows.push([`CGST @ ${(gstRate / 2).toFixed(2)}%`, formatAmountPdf(cgst)])
+    rows.push([`SGST @ ${(gstRate / 2).toFixed(2)}%`, formatAmountPdf(sgst)])
+  } else {
+    rows.push(['GST', 'Nil / Exempt'])
+  }
+  rows.push(['Grand Total', formatAmountPdf(grandTotal)])
+
+  drawBox(doc, summaryX, y, summaryW, 6 + rows.length * 7)
+  doc.setFontSize(8)
+  rows.forEach(([label, val], i) => {
+    const rowY = y + 5 + i * 7
+    doc.setFont('helvetica', i === rows.length - 1 ? 'bold' : 'normal')
+    doc.text(label, summaryX + 3, rowY)
+    doc.text(val, summaryX + summaryW - 3, rowY, { align: 'right' })
+  })
+
+  y += 6 + rows.length * 7 + 6
+  drawBox(doc, MARGIN, y, contentW, 12)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Amount Chargeable (in words):', MARGIN + 4, y + 5)
+  doc.setFont('helvetica', 'normal')
+  doc.text(amountInWords(grandTotal), MARGIN + 4, y + 10)
+
+  doc.setFontSize(7.5)
+  doc.setTextColor(100, 116, 139)
+  doc.text('This is a computer-generated invoice.', pageWidth / 2, y + 20, { align: 'center' })
+
+  doc.setTextColor(...INK)
+  return doc
+}
+
+export function openProductSaleBillPdf(sale) {
+  const doc = generateProductSaleBill(sale)
+  window.open(doc.output('bloburl'), '_blank')
+}

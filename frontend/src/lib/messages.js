@@ -117,3 +117,21 @@ export function buildCashReceivedMessage(customer, amount) {
     dairyName: dairy.dairyName
   })
 }
+
+export function buildProductSaleWhatsAppMessage(sale) {
+  const dairy = getSettings()
+  return fillMessage(`Hi {name},
+
+*Product Bill*
+Bill No: {billId}
+Product: {product}
+Amount: *{amount}*
+
+— {dairyName}`, {
+    name: sale.buyer_name,
+    billId: sale.invoice_no,
+    product: sale.product_name,
+    amount: formatAmountPdf(sale.total_amount),
+    dairyName: dairy.dairyName
+  })
+}
