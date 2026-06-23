@@ -5,7 +5,7 @@ import { getMonthBounds, getBillStatus } from './utils'
 export async function exportMilkProduction(startDate, endDate, format = 'xlsx') {
   const { data, error } = await supabase
     .from('cattle_milk_entries')
-    .select('date, morning_litres, evening_litres, total_litres, cattle(name, breed, category)')
+    .select('date, morning_litres, evening_litres, total_litres, cattle(cattle_id, name, breed, category)')
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date')
@@ -13,21 +13,19 @@ export async function exportMilkProduction(startDate, endDate, format = 'xlsx') 
   if (error) throw error
 
   const rows = (data || []).map((r) => ({
-    date: r.date,
+    cattle_id: r.cattle?.cattle_id || '',
     cattle_name: r.cattle?.name || '',
     breed: r.cattle?.breed || '',
     category: r.cattle?.category || '',
+    date: r.date,
     morning_litres: Number(r.morning_litres),
     evening_litres: Number(r.evening_litres),
     total_litres: Number(r.total_litres)
   }))
 
   const filename = `cattle_milk_production_${startDate}_to_${endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`
-  if (format === 'csv') {
-    downloadCsv(filename, rows)
-  } else {
-    downloadWorkbook(filename, [{ name: 'Production', rows }])
-  }
+  if (format === 'csv') downloadCsv(filename, rows)
+  else downloadWorkbook(filename, [{ name: 'Production', rows }])
   return rows.length
 }
 
@@ -36,6 +34,7 @@ export async function exportCattleList(format = 'xlsx') {
   if (error) throw error
 
   const rows = (data || []).map((c) => ({
+    cattle_id: c.cattle_id || '',
     name: c.name,
     breed: c.breed || '',
     category: c.category,
@@ -49,11 +48,7 @@ export async function exportCattleList(format = 'xlsx') {
 }
 
 export async function exportCustomerList(format = 'xlsx') {
-  const { data, error } = await supabase
-    .from('customers')
-    .select('*')
-    .order('name')
-
+  const { data, error } = await supabase.from('customers').select('*').order('name')
   if (error) throw error
 
   const allCustomKeys = new Set()
@@ -63,6 +58,7 @@ export async function exportCustomerList(format = 'xlsx') {
 
   const rows = (data || []).map((c) => {
     const row = {
+      customer_id: c.customer_id || '',
       name: c.name,
       whatsapp_no: c.whatsapp_no,
       address: c.address || '',
@@ -81,11 +77,8 @@ export async function exportCustomerList(format = 'xlsx') {
   })
 
   const filename = `customers_${new Date().toISOString().slice(0, 10)}.${format === 'csv' ? 'csv' : 'xlsx'}`
-  if (format === 'csv') {
-    downloadCsv(filename, rows)
-  } else {
-    downloadWorkbook(filename, [{ name: 'Customers', rows }])
-  }
+  if (format === 'csv') downloadCsv(filename, rows)
+  else downloadWorkbook(filename, [{ name: 'Customers', rows }])
   return rows.length
 }
 
@@ -147,6 +140,7 @@ export async function exportMonthlyBillStatus(month, format = 'xlsx') {
 
     const balance = totalBillAmount - paidAmount
     return {
+      customer_id: c.customer_id || '',
       customer_name: c.name,
       whatsapp_no: c.whatsapp_no,
       month,
@@ -172,7 +166,7 @@ export async function exportMonthlyBillStatus(month, format = 'xlsx') {
 export async function exportButtermilkProduction(startDate, endDate, format = 'xlsx') {
   const { data, error } = await supabase
     .from('buttermilk_entries')
-    .select('date, quantity, rate, amount, customers(name, whatsapp_no)')
+    .select('date, quantity, rate, amount, customers(customer_id, name, whatsapp_no)')
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date')
@@ -180,9 +174,10 @@ export async function exportButtermilkProduction(startDate, endDate, format = 'x
   if (error) throw error
 
   const rows = (data || []).map((b) => ({
-    date: b.date,
+    customer_id: b.customers?.customer_id || '',
     customer_name: b.customers?.name || '',
     whatsapp_no: b.customers?.whatsapp_no || '',
+    date: b.date,
     quantity_litres: Number(b.quantity),
     rate: Number(b.rate),
     amount: Number(b.amount)
@@ -198,7 +193,7 @@ export async function exportCustomerDeliveries(startDate, endDate, format = 'xls
   const [{ data: milkData, error }, { data: bmData }] = await Promise.all([
     supabase
       .from('daily_entries')
-      .select('morning_qty, evening_qty, total_qty, rate, amount, customer_id, customers(name, whatsapp_no)')
+      .select('morning_qty, evening_qty, total_qty, rate, amount, customer_id, customers(customer_id, name, whatsapp_no)')
       .gte('date', startDate)
       .lte('date', endDate),
     supabase
@@ -210,11 +205,11 @@ export async function exportCustomerDeliveries(startDate, endDate, format = 'xls
 
   if (error) throw error
 
-  // Aggregate milk entries per customer
   const milkByCustomer = {}
   for (const e of milkData || []) {
     if (!milkByCustomer[e.customer_id]) {
       milkByCustomer[e.customer_id] = {
+        customer_id: e.customers?.customer_id || '',
         name: e.customers?.name || '',
         whatsapp_no: e.customers?.whatsapp_no || '',
         morning_litres: 0, evening_litres: 0, total_milk_litres: 0, milk_amount: 0,
@@ -229,7 +224,6 @@ export async function exportCustomerDeliveries(startDate, endDate, format = 'xls
     m.rates.add(Number(e.rate))
   }
 
-  // Aggregate buttermilk entries per customer
   const bmByCustomer = {}
   for (const b of bmData || []) {
     if (!bmByCustomer[b.customer_id]) bmByCustomer[b.customer_id] = { qty: 0, amount: 0 }
@@ -245,6 +239,7 @@ export async function exportCustomerDeliveries(startDate, endDate, format = 'xls
     const bmAmount = bm?.amount || 0
     const bmQty = bm?.qty || 0
     return {
+      customer_id: m?.customer_id || '',
       customer_name: m?.name || '',
       whatsapp_no: m?.whatsapp_no || '',
       morning_litres: m?.morning_litres || 0,
@@ -299,10 +294,7 @@ export async function exportProductSales(startDate, endDate, format = 'xlsx') {
   }))
 
   const filename = `product_sales_${startDate}_to_${endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`
-  if (format === 'csv') {
-    downloadCsv(filename, rows)
-  } else {
-    downloadWorkbook(filename, [{ name: 'Product Sales', rows }])
-  }
+  if (format === 'csv') downloadCsv(filename, rows)
+  else downloadWorkbook(filename, [{ name: 'Product Sales', rows }])
   return rows.length
 }
