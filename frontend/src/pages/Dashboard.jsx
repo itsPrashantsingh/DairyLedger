@@ -24,6 +24,13 @@ export default function Dashboard() {
     netProfit: 0, activeCustomers: 0, activeCattle: 0,
     collectionEfficiency: 0, productionEfficiency: 0
   })
+  const [revenueRange, setRevenueRange] = useState('month')
+  const [revenueBreakdown, setRevenueBreakdown] = useState({ milk: 0, buttermilk: 0, products: 0, total: 0, expenses: 0, netProfit: 0, cashCollected: 0, outstanding: 0 })
+  const [rawMilkDeliveries, setRawMilkDeliveries] = useState([])
+  const [rawBmDeliveries, setRawBmDeliveries] = useState([])
+  const [rawProductSalesAll, setRawProductSalesAll] = useState([])
+  const [rawExpensesAll, setRawExpensesAll] = useState([])
+  const [rawPaymentsAll, setRawPaymentsAll] = useState([])
   const [productionKpis, setProductionKpis] = useState({
     today: 0, thisMonth: 0, last30: 0, lifetime: 0
   })
@@ -54,7 +61,8 @@ export default function Dashboard() {
       paymentsRes, productSalesRes, billsRes, cattleEntriesRes, deliveredRes,
       expensesRes, allPaymentsRes, allProductSalesRes, allExpensesRes,
       cattleEntries30Res, activeCustomersRes, activeCattleRes,
-      allCattleEntriesRes, allDeliveredRes, cattleListRes
+      allCattleEntriesRes, allDeliveredRes, cattleListRes,
+      allMilkDeliveriesRes, allBmDeliveriesRes
     ] = await Promise.all([
       supabase.from('payments').select('amount').gte('paid_at', start).lte('paid_at', end + 'T23:59:59'),
       supabase.from('product_sales').select('total_amount').gte('date', start).lte('date', end),
@@ -70,7 +78,9 @@ export default function Dashboard() {
       supabase.from('cattle').select('id', { count: 'exact', head: true }).eq('active', true),
       supabase.from('cattle_milk_entries').select('total_litres, date, cattle_id'),
       supabase.from('daily_entries').select('total_qty, date'),
-      supabase.from('cattle').select('id, name, cattle_id').eq('active', true).order('name')
+      supabase.from('cattle').select('id, name, cattle_id').eq('active', true).order('name'),
+      supabase.from('daily_entries').select('amount, date'),
+      supabase.from('buttermilk_entries').select('amount, date')
     ])
 
     const milkRevenue = (paymentsRes.data || []).reduce((s, p) => s + Number(p.amount), 0)
@@ -113,6 +123,13 @@ export default function Dashboard() {
     // Store raw SVP data — recomputed in useEffect when svpRange changes
     setRawCattleEntries(allCattleEntriesRes.data || [])
     setRawDailyEntries(allDeliveredRes.data || [])
+
+    // Store raw revenue data — recomputed in useEffect when revenueRange changes
+    setRawMilkDeliveries(allMilkDeliveriesRes.data || [])
+    setRawBmDeliveries(allBmDeliveriesRes.data || [])
+    setRawProductSalesAll(allProductSalesRes.data || [])
+    setRawExpensesAll(allExpensesRes.data || [])
+    setRawPaymentsAll(allPaymentsRes.data || [])
 
     // Cattle list for filter
     setCattle(cattleListRes.data || [])
@@ -221,6 +238,36 @@ export default function Dashboard() {
     loadCattleKpis()
   }, [selectedCattle, productionKpis])
 
+  // Recompute revenue breakdown whenever range or raw data changes
+  useEffect(() => {
+    const ym = currentYearMonth()
+    const { start, end } = getMonthBounds(ym)
+    const sixStart = last6Months()[0].key + '-01'
+
+    const pickByDate = (arr) => {
+      if (revenueRange === 'month') return arr.filter((e) => e.date >= start && e.date <= end)
+      if (revenueRange === '6months') return arr.filter((e) => e.date >= sixStart)
+      return arr
+    }
+    const pickByPaidAt = (arr) => {
+      if (revenueRange === 'month') return arr.filter((e) => e.paid_at >= start && e.paid_at <= end + 'T23:59:59')
+      if (revenueRange === '6months') return arr.filter((e) => e.paid_at >= sixStart)
+      return arr
+    }
+
+    const milk = pickByDate(rawMilkDeliveries).reduce((s, e) => s + Number(e.amount), 0)
+    const buttermilk = pickByDate(rawBmDeliveries).reduce((s, e) => s + Number(e.amount), 0)
+    const products = pickByDate(rawProductSalesAll).reduce((s, e) => s + Number(e.total_amount), 0)
+    const expenses = pickByDate(rawExpensesAll).reduce((s, e) => s + Number(e.amount), 0)
+    const billPayments = pickByPaidAt(rawPaymentsAll).reduce((s, e) => s + Number(e.amount), 0)
+    // Product sales are collected at point of sale, so add them to cash collected
+    const cashCollected = billPayments + products
+    const total = milk + buttermilk + products
+    // Outstanding = milk+BM earned but not yet paid by customers
+    const outstanding = Math.max(0, milk + buttermilk - billPayments)
+    setRevenueBreakdown({ milk, buttermilk, products, total, expenses, netProfit: total - expenses, cashCollected, outstanding })
+  }, [revenueRange, rawMilkDeliveries, rawBmDeliveries, rawProductSalesAll, rawExpensesAll, rawPaymentsAll])
+
   // Recompute supply vs production whenever range or raw data changes
   useEffect(() => {
     if (!rawCattleEntries.length && !rawDailyEntries.length) return
@@ -275,14 +322,77 @@ export default function Dashboard() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
 
+      {/* ── Revenue & Profit ──────────────────────────────────── */}
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Revenue & Profit</h2>
+          <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-medium">
+            {[['month', 'This Month'], ['6months', '6 Months'], ['alltime', 'All Time']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setRevenueRange(val)}
+                className={`px-3 py-1.5 transition-colors ${revenueRange === val ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Row 1 — key KPIs */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className={`rounded-xl border p-4 ${revenueBreakdown.netProfit >= 0 ? 'border-emerald-300 bg-emerald-600' : 'border-red-300 bg-red-600'}`}>
+            <p className="text-xs font-medium text-white/70">Net Profit</p>
+            <p className="mt-1 text-xl font-bold text-white">{formatCurrency(revenueBreakdown.netProfit)}</p>
+            <p className="mt-1 text-[10px] text-white/50">Total Revenue − Expenses</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-medium text-slate-500">Total Revenue</p>
+            <p className="mt-1 text-xl font-bold text-slate-800">{formatCurrency(revenueBreakdown.total)}</p>
+            <p className="mt-1 text-[10px] text-slate-400">Milk + Buttermilk + Products</p>
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p className="text-xs font-medium text-blue-600">Cash Collected</p>
+            <p className="mt-1 text-xl font-bold text-blue-800">{formatCurrency(revenueBreakdown.cashCollected)}</p>
+            <p className="mt-1 text-[10px] text-blue-400">Bill Payments + Product Sales</p>
+          </div>
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <p className="text-xs font-medium text-orange-600">Outstanding</p>
+            <p className="mt-1 text-xl font-bold text-orange-800">{formatCurrency(revenueBreakdown.outstanding)}</p>
+            <p className="mt-1 text-[10px] text-orange-400">Milk + BM Delivered − Collected</p>
+          </div>
+        </div>
+
+        {/* Row 2 — breakdown */}
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+            <p className="text-xs font-medium text-green-600">Milk Revenue</p>
+            <p className="mt-1 text-lg font-bold text-green-800">{formatCurrency(revenueBreakdown.milk)}</p>
+            <p className="mt-1 text-[10px] text-green-400">Σ daily_entries.amount</p>
+          </div>
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-3">
+            <p className="text-xs font-medium text-purple-600">Buttermilk Revenue</p>
+            <p className="mt-1 text-lg font-bold text-purple-800">{formatCurrency(revenueBreakdown.buttermilk)}</p>
+            <p className="mt-1 text-[10px] text-purple-400">Σ buttermilk_entries.amount</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-medium text-amber-600">Product Sales</p>
+            <p className="mt-1 text-lg font-bold text-amber-800">{formatCurrency(revenueBreakdown.products)}</p>
+            <p className="mt-1 text-[10px] text-amber-400">Σ product_sales.total_amount</p>
+          </div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+            <p className="text-xs font-medium text-red-500">Expenses</p>
+            <p className="mt-1 text-lg font-bold text-red-800">{formatCurrency(revenueBreakdown.expenses)}</p>
+            <p className="mt-1 text-[10px] text-red-400">Σ expenses.amount</p>
+          </div>
+        </div>
+      </section>
+
       {/* ── Business Health ────────────────────────────────────── */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Business Health</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <StatCard title="Active Customers" value={stats.activeCustomers} color="green" />
           <StatCard title="Active Cattle" value={stats.activeCattle} color="slate" />
-          <StatCard title="Monthly Revenue" value={formatCurrency(stats.revenue)} subtitle="Milk + other sales" color="green" />
-          <StatCard title="Outstanding Dues" value={formatCurrency(stats.outstanding)} color="red" />
           <StatCard title="Collection Efficiency" value={`${stats.collectionEfficiency}%`} subtitle="Paid vs billed this month" color={stats.collectionEfficiency >= 80 ? 'green' : stats.collectionEfficiency >= 50 ? 'amber' : 'red'} />
           <StatCard title="Production Efficiency" value={`${stats.productionEfficiency}%`} subtitle="Supplied vs produced this month" color={stats.productionEfficiency >= 80 ? 'green' : 'amber'} />
         </div>
