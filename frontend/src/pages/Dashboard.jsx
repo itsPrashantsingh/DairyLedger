@@ -30,6 +30,9 @@ export default function Dashboard() {
   const [supplyVsProduction, setSupplyVsProduction] = useState({
     produced: 0, supplied: 0, surplus: 0, utilization: 0
   })
+  const [svpRange, setSvpRange] = useState('alltime')
+  const [rawCattleEntries, setRawCattleEntries] = useState([])
+  const [rawDailyEntries, setRawDailyEntries] = useState([])
   const [cattle, setCattle] = useState([])
   const [selectedCattle, setSelectedCattle] = useState('total')
   const [cattleKpis, setCattleKpis] = useState({ today: 0, thisMonth: 0, last30: 0, lifetime: 0 })
@@ -107,16 +110,9 @@ export default function Dashboard() {
       collectionEfficiency, productionEfficiency
     })
 
-    // Supply vs Production (cumulative all time)
-    const totalProduced = (allCattleEntriesRes.data || []).reduce((s, e) => s + Number(e.total_litres), 0)
-    const totalSupplied = (allDeliveredRes.data || []).reduce((s, e) => s + Number(e.total_qty), 0)
-    const surplus = totalProduced - totalSupplied
-    setSupplyVsProduction({
-      produced: totalProduced,
-      supplied: totalSupplied,
-      surplus,
-      utilization: totalProduced > 0 ? Math.round((totalSupplied / totalProduced) * 100) : 0
-    })
+    // Store raw SVP data — recomputed in useEffect when svpRange changes
+    setRawCattleEntries(allCattleEntriesRes.data || [])
+    setRawDailyEntries(allDeliveredRes.data || [])
 
     // Cattle list for filter
     setCattle(cattleListRes.data || [])
@@ -126,7 +122,8 @@ export default function Dashboard() {
     const todayTotal = allEntries.filter((e) => e.date === today).reduce((s, e) => s + Number(e.total_litres), 0)
     const monthTotal = allEntries.filter((e) => e.date >= start && e.date <= end).reduce((s, e) => s + Number(e.total_litres), 0)
     const last30Total = (cattleEntries30Res.data || []).reduce((s, e) => s + Number(e.total_litres), 0)
-    setProductionKpis({ today: todayTotal, thisMonth: monthTotal, last30: last30Total, lifetime: totalProduced })
+    const lifetimeTotal = allEntries.reduce((s, e) => s + Number(e.total_litres), 0)
+    setProductionKpis({ today: todayTotal, thisMonth: monthTotal, last30: last30Total, lifetime: lifetimeTotal })
 
     // Revenue chart
     const months = last6Months()
@@ -224,6 +221,34 @@ export default function Dashboard() {
     loadCattleKpis()
   }, [selectedCattle, productionKpis])
 
+  // Recompute supply vs production whenever range or raw data changes
+  useEffect(() => {
+    if (!rawCattleEntries.length && !rawDailyEntries.length) return
+    const ym = currentYearMonth()
+    const { start, end } = getMonthBounds(ym)
+    const sixMonthsStart = last6Months()[0].key + '-01'
+
+    const cattle = svpRange === 'month'
+      ? rawCattleEntries.filter((e) => e.date >= start && e.date <= end)
+      : svpRange === '6months'
+        ? rawCattleEntries.filter((e) => e.date >= sixMonthsStart)
+        : rawCattleEntries
+
+    const delivered = svpRange === 'month'
+      ? rawDailyEntries.filter((e) => e.date >= start && e.date <= end)
+      : svpRange === '6months'
+        ? rawDailyEntries.filter((e) => e.date >= sixMonthsStart)
+        : rawDailyEntries
+
+    const produced = cattle.reduce((s, e) => s + Number(e.total_litres), 0)
+    const supplied = delivered.reduce((s, e) => s + Number(e.total_qty), 0)
+    const surplus = produced - supplied
+    setSupplyVsProduction({
+      produced, supplied, surplus,
+      utilization: produced > 0 ? Math.round((supplied / produced) * 100) : 0
+    })
+  }, [svpRange, rawCattleEntries, rawDailyEntries])
+
   async function handleMarkPaid(bill) {
     const balance = Number(bill.total_amount) - bill.paidAmount
     const amount = prompt(`Enter cash amount received (balance: ${formatCurrency(balance)}):`, balance)
@@ -303,7 +328,22 @@ export default function Dashboard() {
 
       {/* ── Supply vs Production ──────────────────────────────── */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Supply vs Production (All Time)</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Supply vs Production
+          </h2>
+          <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden text-xs font-medium">
+            {[['month', 'This Month'], ['6months', '6 Months'], ['alltime', 'All Time']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setSvpRange(val)}
+                className={`px-3 py-1.5 transition-colors ${svpRange === val ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
             <p className="text-xs text-blue-600">Total Produced</p>
