@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { formatDate, currentYearMonth, getMonthBounds } from '../lib/utils'
+import { formatDate, formatQty, currentYearMonth, getMonthBounds } from '../lib/utils'
 
 export default function CattleDetail() {
   const { id } = useParams()
@@ -147,9 +147,9 @@ export default function CattleDetail() {
                 {entries.map((e) => (
                   <tr key={e.id} className="border-t border-slate-100">
                     <td className="px-4 py-2">{formatDate(e.date)}</td>
-                    <td className="px-4 py-2">{Number(e.morning_litres)} L</td>
-                    <td className="px-4 py-2">{Number(e.evening_litres)} L</td>
-                    <td className="px-4 py-2 font-medium">{Number(e.total_litres)} L</td>
+                    <td className="px-4 py-2">{formatQty(e.morning_litres)} L</td>
+                    <td className="px-4 py-2">{formatQty(e.evening_litres)} L</td>
+                    <td className="px-4 py-2 font-medium">{formatQty(e.total_litres)} L</td>
                   </tr>
                 ))}
               </tbody>

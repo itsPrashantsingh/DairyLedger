@@ -8,6 +8,7 @@ import LoadingOverlay from '../components/LoadingOverlay'
 import {
   formatCurrency,
   formatDate,
+  formatQty,
   currentYearMonth,
   getMonthBounds
 } from '../lib/utils'
@@ -267,7 +268,7 @@ export default function CustomerDetail() {
             <h1 className="text-2xl font-bold text-slate-800">{customer.name}</h1>
             <p className="text-slate-500">+91 {customer.whatsapp_no}</p>
             {customer.address && <p className="text-sm text-slate-500">{customer.address}</p>}
-            <p className="mt-1 text-sm text-slate-400">Rate: {formatCurrency(customer.rate)}/L · Morning: {customer.morning_qty}L · Evening: {customer.evening_qty}L</p>
+            <p className="mt-1 text-sm text-slate-400">Rate: {formatCurrency(customer.rate)}/L · Morning: {formatQty(customer.morning_qty)}L · Evening: {formatQty(customer.evening_qty)}L</p>
             {customer.buttermilk_required && (
               <p className="mt-1 text-sm text-purple-600">Buttermilk: {customer.buttermilk_quantity}L/day @ {formatCurrency(customer.buttermilk_rate)}/L</p>
             )}
@@ -406,11 +407,11 @@ export default function CustomerDetail() {
                   return (
                     <tr key={e.id} className="border-b border-slate-100">
                       <td className="py-2 pr-3">{formatDate(e.date)}</td>
-                      <td className="py-2 pr-3">{e.morning_qty}L</td>
-                      <td className="py-2 pr-3">{e.evening_qty}L</td>
-                      <td className="py-2 pr-3">{e.total_qty}L</td>
+                      <td className="py-2 pr-3">{formatQty(e.morning_qty)}L</td>
+                      <td className="py-2 pr-3">{formatQty(e.evening_qty)}L</td>
+                      <td className="py-2 pr-3">{formatQty(e.total_qty)}L</td>
                       {customer.buttermilk_required && (
-                        <td className="py-2 pr-3 text-purple-700">{bm ? `${bm.quantity}L` : '—'}</td>
+                        <td className="py-2 pr-3 text-purple-700">{bm ? `${formatQty(bm.quantity)}L` : '—'}</td>
                       )}
                       <td className="py-2">{formatCurrency(Number(e.amount) + (bm?.amount || 0))}</td>
                     </tr>

@@ -16,8 +16,8 @@ export default function QtyControl({ value, onChange, label, color = 'green', di
           step="0.5"
           min="0"
           disabled={disabled}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={parseFloat(Number(value || 0).toFixed(2))}
+          onChange={(e) => onChange(Math.round(Number(e.target.value || 0) * 100) / 100)}
           className="h-9 w-full rounded-lg border border-slate-200 bg-white text-center text-base font-bold disabled:bg-slate-100 disabled:text-slate-500"
         />
         <button type="button" disabled={disabled} onClick={() => step(0.5)} className={`h-9 w-9 shrink-0 rounded-lg ${btn} text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-40`}>+</button>

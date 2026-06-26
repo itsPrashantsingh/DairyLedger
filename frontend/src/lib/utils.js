@@ -1,3 +1,7 @@
+export function formatQty(qty) {
+  return parseFloat(Number(qty || 0).toFixed(2))
+}
+
 export function formatCurrency(amount) {
   return `₹${Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { todayISO } from '../lib/utils'
+import { todayISO, formatQty } from '../lib/utils'
 import Toast from '../components/Toast'
 import QtyControl from '../components/QtyControl'
 
@@ -226,9 +226,9 @@ export default function MilkProduction() {
                   <tr key={r.id} className="border-t border-slate-100">
                     <td className="py-1.5 font-medium">{r.name}</td>
                     <td className="py-1.5 text-slate-500">{r.breed || '—'}</td>
-                    <td className="py-1.5">{r.morning}</td>
-                    <td className="py-1.5">{r.evening}</td>
-                    <td className="py-1.5 font-semibold">{r.total}</td>
+                    <td className="py-1.5">{formatQty(r.morning)}</td>
+                    <td className="py-1.5">{formatQty(r.evening)}</td>
+                    <td className="py-1.5 font-semibold">{formatQty(r.total)}</td>
                   </tr>
                 ))}
               </tbody>
