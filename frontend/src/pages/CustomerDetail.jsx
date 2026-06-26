@@ -29,6 +29,7 @@ export default function CustomerDetail() {
   const [razorpayLoading, setRazorpayLoading] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState(null)
+  const [editCustomFields, setEditCustomFields] = useState([{ key: '', value: '' }])
   const [editPhoneError, setEditPhoneError] = useState('')
 
   useEffect(() => {
@@ -57,6 +58,9 @@ export default function CustomerDetail() {
       buttermilk_quantity: cust.buttermilk_quantity || 0,
       buttermilk_rate: cust.buttermilk_rate || 0
     })
+    const cf = cust.custom_fields || {}
+    const pairs = Object.entries(cf).map(([key, value]) => ({ key, value }))
+    setEditCustomFields(pairs.length ? pairs : [{ key: '', value: '' }])
 
     const { start, end } = getMonthBounds(month)
     const { data: ents } = await supabase
@@ -185,7 +189,9 @@ export default function CustomerDetail() {
       return
     }
     setEditPhoneError('')
-    const { error } = await supabase.from('customers').update({ ...editForm, whatsapp_no: digits }).eq('id', id)
+    const custom_fields = {}
+    editCustomFields.forEach(({ key, value }) => { if (key.trim()) custom_fields[key.trim()] = value })
+    const { error } = await supabase.from('customers').update({ ...editForm, whatsapp_no: digits, custom_fields }).eq('id', id)
     if (error) { alert(error.message); return }
     setShowEdit(false)
     loadAll()
@@ -264,6 +270,15 @@ export default function CustomerDetail() {
             <p className="mt-1 text-sm text-slate-400">Rate: {formatCurrency(customer.rate)}/L · Morning: {customer.morning_qty}L · Evening: {customer.evening_qty}L</p>
             {customer.buttermilk_required && (
               <p className="mt-1 text-sm text-purple-600">Buttermilk: {customer.buttermilk_quantity}L/day @ {formatCurrency(customer.buttermilk_rate)}/L</p>
+            )}
+            {Object.keys(customer.custom_fields || {}).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Object.entries(customer.custom_fields).map(([k, v]) => (
+                  <span key={k} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                    <span className="font-medium text-slate-400">{k}:</span> {v}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <div className="flex gap-2">
@@ -502,6 +517,43 @@ export default function CustomerDetail() {
                     </div>
                   </div>
                 )}
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-600">Custom Fields</p>
+                {editCustomFields.map((cf, i) => (
+                  <div key={i} className="mb-2 flex gap-2">
+                    <input
+                      placeholder="Key"
+                      value={cf.key}
+                      onChange={(e) => {
+                        const next = [...editCustomFields]
+                        next[i] = { ...next[i], key: e.target.value }
+                        setEditCustomFields(next)
+                      }}
+                      className="flex-1 rounded-lg border px-2 py-1 text-sm"
+                    />
+                    <input
+                      placeholder="Value"
+                      value={cf.value}
+                      onChange={(e) => {
+                        const next = [...editCustomFields]
+                        next[i] = { ...next[i], value: e.target.value }
+                        setEditCustomFields(next)
+                      }}
+                      className="flex-1 rounded-lg border px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditCustomFields(editCustomFields.filter((_, j) => j !== i))}
+                      className="text-red-400 hover:text-red-600"
+                    >✕</button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEditCustomFields([...editCustomFields, { key: '', value: '' }])}
+                  className="text-sm text-green-600"
+                >+ Add field</button>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
