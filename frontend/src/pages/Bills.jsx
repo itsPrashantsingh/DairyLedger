@@ -29,6 +29,7 @@ export default function Bills() {
   const [loading, setLoading] = useState(true)
   const [cashModal, setCashModal] = useState(null)
   const [cashAmount, setCashAmount] = useState('')
+  const [savingCash, setSavingCash] = useState(false)
   const [running, setRunning] = useState('')
   const [progress, setProgress] = useState(null)
   const [toast, setToast] = useState({ message: '', type: 'success' })
@@ -141,7 +142,8 @@ export default function Bills() {
   }
 
   async function confirmCashPayment() {
-    if (!cashModal || !cashAmount) return
+    if (!cashModal || !cashAmount || savingCash) return
+    setSavingCash(true)
     try {
       const { customer, applied } = await markCashPayment(cashModal, cashAmount, cashModal.customers)
       window.open(whatsappLink(customer.whatsapp_no, buildCashReceivedMessage(customer, formatCurrency(applied))), '_blank')
@@ -149,6 +151,8 @@ export default function Bills() {
       loadBills()
     } catch (err) {
       setToast({ message: err.message, type: 'error' })
+    } finally {
+      setSavingCash(false)
     }
   }
 
@@ -306,8 +310,8 @@ export default function Bills() {
             <p className="text-sm text-slate-500">{cashModal.customers?.name} · {cashModal.id}</p>
             <input type="number" value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} className="mt-4 w-full rounded-lg border px-3 py-2" />
             <div className="mt-4 flex gap-2">
-              <button onClick={confirmCashPayment} className="flex-1 rounded-lg bg-green-600 py-2 text-white">Confirm</button>
-              <button onClick={() => setCashModal(null)} className="flex-1 rounded-lg border py-2">Cancel</button>
+              <button onClick={confirmCashPayment} disabled={savingCash} className="flex-1 rounded-lg bg-green-600 py-2 text-white disabled:opacity-50">{savingCash ? 'Saving…' : 'Confirm'}</button>
+              <button onClick={() => setCashModal(null)} disabled={savingCash} className="flex-1 rounded-lg border py-2 disabled:opacity-50">Cancel</button>
             </div>
           </div>
         </div>

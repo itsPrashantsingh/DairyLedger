@@ -159,6 +159,7 @@ export default function Sales() {
 
   async function saveSale(e) {
     e.preventDefault()
+    if (savingSale) return
     const product = products.find((p) => p.id === saleForm.product_id)
     if (!product) {
       setToast({ message: 'Choose a product first', type: 'error' })
@@ -225,20 +226,29 @@ export default function Sales() {
       return
     }
 
+    // Restock the previous product if the sale was moved to a different product (atomic)
     if (editingSale?.product_id && editingSale.product_id !== product.id) {
-      const oldProduct = products.find((p) => p.id === editingSale.product_id)
-      if (oldProduct) {
-        await supabase
-          .from('products')
-          .update({ stock_qty: Number(oldProduct.stock_qty || 0) + Number(editingSale.quantity || 0) })
-          .eq('id', oldProduct.id)
+      const { error: restockErr } = await supabase.rpc('decrement_product_stock', {
+        p_product_id: editingSale.product_id,
+        p_qty: -Number(editingSale.quantity || 0)
+      })
+      if (restockErr) {
+        setSavingSale(false)
+        setToast({ message: restockErr.message, type: 'error' })
+        return
       }
     }
 
-    await supabase
-      .from('products')
-      .update({ stock_qty: Math.max(0, availableStock - quantity) })
-      .eq('id', product.id)
+    // Apply the net stock change atomically (create = quantity, edit = delta vs previous qty)
+    const { error: stockErr } = await supabase.rpc('decrement_product_stock', {
+      p_product_id: product.id,
+      p_qty: quantity - oldQuantity
+    })
+    if (stockErr) {
+      setSavingSale(false)
+      setToast({ message: stockErr.message, type: 'error' })
+      return
+    }
 
     const savedSale = savedRows?.[0] || row
     setSaleForm({ ...EMPTY_SALE, date: saleForm.date })
